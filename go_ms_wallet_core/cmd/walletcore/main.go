@@ -8,7 +8,7 @@ import (
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/database"
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/event"
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/event/handler"
-	createaccount "github.com.br/devfullcycle/fc-ms-wallet/internal/usecase/create_account"
+    "github.com.br/devfullcycle/fc-ms-wallet/internal/usecase/create_account"
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/usecase/create_client"
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/usecase/create_transaction"
 	"github.com.br/devfullcycle/fc-ms-wallet/internal/web"
@@ -54,7 +54,7 @@ func main() {
 	})
 	createTransactionUseCase := create_transaction.NewCreateTransactionUseCase(uow, eventDispatcher, transactionCreatedEvent, balanceUpdatedEvent)
 	createClientUseCase := create_client.NewCreateClientUseCase(clientDb)
-	createAccountUseCase := createaccount.NewCreateAccountUseCase(accountDb, clientDb)
+	createAccountUseCase := create_account.NewCreateAccountUseCase(accountDb, clientDb)
 
 	webserver := webserver.NewWebServer(":8080")
 
