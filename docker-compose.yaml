@@ -1,21 +1,58 @@
-version: '3.9'
+version: '3.8'
 
 services:
-  goapp: 
+  nodeapp:
     build: 
-      context: go_ms_wallet_core/
+      context: ./ts_ms_wallet_balance
       dockerfile: Dockerfile
     platform: linux/amd64
+    # volumes:
+    #   - ./node_ms_wallet:/app
+    ports:
+      - 3003:3003
+    environment:
+      - KAFKA_HOST=kafka:29092
+      - KAFKA_TOPIC=balances
+      - PORT=3003
+      - MYSQL_URL=mysql://root:root@mysql2:3306/balance
+    depends_on:
+      mysql2:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+  
+  mysql2:
+    image: mysql:5.7
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: balance
+      MYSQL_PASSWORD: root
+    ports:
+      - 3307:3306
     volumes:
-      - ./go_ms_wallet_core:/app
+      - .docker/mysql2:/var/lib/mysql
+    #  - ./ts_ms_wallet_balance/src/database/scripts/:/docker-entrypoint-initdb.d
+    restart: 'always'
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 5
+
+  goapp: 
+    build: 
+      context: ./go_ms_wallet_core
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    # volumes:
+    #   - ./go_ms_wallet_core:/app
     ports:
       - 8080:8080
-    command: 'go run cmd/walletcore/main.go'
     depends_on:
       mysql:
         condition: service_healthy
       kafka:
-        condition: service_healthy
+        condition: service_started
 
   mysql:
     image: mysql:5.7
@@ -38,10 +75,11 @@ services:
   zookeeper:
     image: "confluentinc/cp-zookeeper:6.1.0"
     container_name: zookeeper
+    platform: linux/amd64
     healthcheck:
-      test: nc -z localhost 2181 || exit -1
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 30s
+      timeout: 10s
       retries: 3
     ports:
       - 2181:2181
@@ -53,6 +91,7 @@ services:
   kafka:
     image: "confluentinc/cp-enterprise-kafka:6.1.0"
     container_name: kafka
+    platform: linux/amd64
     restart: on-failure
     depends_on:
       zookeeper:
@@ -75,21 +114,23 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
       CONFLUENT_METRICS_ENABLE: 'false'
-    healthcheck:
-      test: kafka-topics --bootstrap-server kafka:9092 --list
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      KAFKA_CREATE_TOPICS: "balances:1:1,transactions:1:1"
   
   control-center:
     image: confluentinc/cp-enterprise-control-center:7.3.0
     hostname: control-center
     container_name: control-center
+    platform: linux/amd64
     depends_on:
       kafka:
-        condition: service_healthy
+        condition: service_started
     ports:
       - "9021:9021"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9021"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     environment:
       CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:29092'
       CONTROL_CENTER_REPLICATION_FACTOR: 1
@@ -97,4 +138,3 @@ services:
       CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
-  

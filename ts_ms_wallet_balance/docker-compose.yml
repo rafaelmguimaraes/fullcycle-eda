@@ -1,0 +1,31 @@
+version: "3.9"
+services:
+  node:
+    image: node:lts
+    container_name: ms_wallet_balance
+    tty: true
+    stdin_open: true
+    command: sh
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - 3000:3000
+  mysql2:
+    image: mysql:5.7
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: balance
+      MYSQL_PASSWORD: root
+    ports:
+      - 3306:3306
+    volumes:
+      - .docker/mysql2:/var/lib/mysql
+    #  - ./ts_ms_wallet_balance/src/database/scripts/:/docker-entrypoint-initdb.d
+    restart: 'always'
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 5
